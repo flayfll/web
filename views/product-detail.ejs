@@ -1,0 +1,181 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<style>
+    .product-detail-container {
+        margin-top: 1rem;
+    }
+    .product-detail-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2.5rem;
+    }
+    @media (min-width: 992px) { /* Larger breakpoint for two columns */
+        .product-detail-layout {
+            grid-template-columns: 2fr 3fr;
+        }
+    }
+    .product-detail-gallery img {
+        width: 100%;
+        max-height: 500px;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+        border: 1px solid var(--border-color);
+    }
+    .product-detail-info h1 {
+        font-size: clamp(2rem, 4vw, 2.8rem);
+        text-align: left;
+        margin-bottom: 0.8rem;
+        line-height: 1.2;
+    }
+    .product-detail-price {
+        font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+        font-weight: 700;
+        font-family: var(--font-tech);
+        color: var(--accent-pink);
+        margin-bottom: 1rem;
+    }
+    .product-detail-meta {
+        font-size: 1rem;
+        color: var(--text-medium);
+        margin-bottom: 1.2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+    .product-detail-meta span {
+        display: inline-flex;
+        align-items: center;
+    }
+    .product-detail-meta i {
+        margin-right: 0.5em;
+        width: 20px; /* Ensure icons align */
+        text-align: center;
+    }
+    .product-detail-meta .points-info i { color: gold; }
+    .product-detail-meta .stock-available { color: var(--success-green); font-weight: 500; }
+    .product-detail-meta .stock-unavailable { color: var(--error-red); font-weight: 500; }
+    .product-detail-meta .brand-info strong, .product-detail-meta .tags-info strong { color: var(--text-light); }
+    .product-detail-tags-list span {
+        background-color: var(--border-color);
+        color: var(--text-medium);
+        padding: 0.25em 0.7em;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        margin-right: 0.4em;
+        margin-bottom: 0.4em;
+        display: inline-block;
+        cursor: default;
+    }
+    .product-detail-description {
+        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border-color);
+    }
+    .product-detail-description h4 {
+        font-size: 1.3rem;
+        margin-bottom: 0.8rem;
+        font-family: var(--font-primary);
+        font-weight: 600;
+    }
+    .product-detail-description p {
+        line-height: 1.7;
+        color: var(--text-medium);
+    }
+    .product-detail-actions .form-control {
+        width: 85px;
+        margin-right: 1rem;
+        display: inline-block;
+        padding: 0.75rem;
+        background-color: rgba(10,9,22,0.5);
+    }
+    .seller-info-card {
+        background-color: var(--bg-dark-tertiary);
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-top: 2rem;
+        border: 1px solid var(--border-color);
+    }
+    .seller-info-card h4 {
+        font-size: 1.2rem;
+        margin-bottom: 0.8rem;
+        font-family: var(--font-primary);
+        font-weight: 600;
+    }
+    .seller-info-card p { margin-bottom: 0.5rem; }
+    .seller-info-card p a { font-weight: 600; }
+</style>
+
+<main>
+    <div class="container product-detail-container">
+        <% if (product) { %>
+            <div class="card product-detail-layout">
+                <div class="card-glow"></div>
+                <div class="product-detail-gallery">
+                    <img src="<%= product.imageUrl || product.thumbnailUrl || 'https://via.placeholder.com/800x600/100F24/F0F0F5?text=Detail+Produk' %>" alt="<%= product.name %>">
+                </div>
+                <div class="product-detail-info">
+                    <h1><%= product.name %></h1>
+                    <p class="product-detail-price">Rp <%= product.price.toLocaleString('id-ID') %></p>
+
+                    <div class="product-detail-meta">
+                        <span class="points-info"><i class="fas fa-star"></i> Dapatkan <%= product.pointsEarned %> Poin</span>
+                        <span>
+                            <i class="fas fa-boxes"></i>
+                            <% if (product.stock > 0) { %>
+                                <span class="stock-available">Stok Tersedia: <%= product.stock %></span>
+                            <% } else { %>
+                                <span class="stock-unavailable">Stok Habis</span>
+                            <% } %>
+                        </span>
+                        <% if (product.brand) { %>
+                        <span class="brand-info"><i class="fas fa-copyright"></i> Merk: <strong><%= product.brand %></strong></span>
+                        <% } %>
+                         <% if (product.tags && product.tags.length > 0) { %>
+                        <span class="tags-info d-flex align-items-start">
+                            <i class="fas fa-tags" style="margin-top: 0.2em;"></i>
+                            <span class="product-detail-tags-list">
+                                <% product.tags.forEach(tag => { %>
+                                    <span><%= tag %></span>
+                                <% }) %>
+                            </span>
+                        </span>
+                        <% } %>
+                    </div>
+
+                    <% if (product.stock > 0) { %>
+                        <form action="/cart/add/<%= product._id %>" method="POST" class="product-detail-actions d-flex align-items-center">
+                            <input type="number" name="quantity" value="1" min="1" max="<%= product.stock %>" class="form-control">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-cart-plus"></i> Tambah ke Keranjang</button>
+                        </form>
+                    <% } else { %>
+                         <button type="button" class="btn btn-secondary" disabled><i class="fas fa-ban"></i> Stok Habis</button>
+                    <% } %>
+
+                    <div class="product-detail-description">
+                        <h4><i class="fas fa-info-circle"></i> Deskripsi Produk</h4>
+                        <p><%= product.description %></p>
+                    </div>
+
+                    <% if (product.seller) { %>
+                        <div class="seller-info-card">
+                            <h4><i class="fas fa-user-tag"></i> Informasi Penjual</h4>
+                            <p><i class="fas fa-store-alt" style="width: 20px; text-align:center; margin-right: 0.5em;"></i> <a href="/store/<%= product.seller._id %>"><%= product.seller.storeName || product.seller.username %></a></p>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="card text-center" style="padding: 3rem;">
+                <p style="font-size: 4rem; color: var(--text-medium); margin-bottom:1.5rem;"><i class="fas fa-ghost"></i></p>
+                <h2>Produk Tidak Ditemukan</h2>
+                <p class="text-medium">Maaf, produk yang Anda cari tidak ada atau mungkin sudah tidak tersedia.</p>
+                <a href="/" class="btn btn-primary mt-3"><i class="fas fa-arrow-left"></i> Kembali ke Beranda</a>
+            </div>
+        <% } %>
+    </div>
+</main>
+
+<%- include('partials/footer') %>

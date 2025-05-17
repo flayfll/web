@@ -1,0 +1,114 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<style>
+    .profile-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        margin: 0 auto 1rem;
+        border: 4px solid var(--accent-purple);
+        padding: 5px;
+        background-color: var(--bg-dark-tertiary);
+    }
+    .profile-avatar i {
+        font-size: 60px; /* Adjust if using an image */
+        color: var(--accent-purple-light);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+    }
+    .profile-points-display {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: gold; /* Or var(--accent-pink) */
+        margin-top: 0.5rem;
+    }
+    .profile-points-display i { margin-right: 0.3em; }
+    .profile-section {
+        margin-bottom: 2.5rem;
+    }
+    .profile-section h2 {
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-size: 1.6rem;
+    }
+    .order-history-item, .point-history-item {
+        background-color: var(--bg-dark-tertiary);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 3px solid var(--accent-purple-light);
+        font-size: 0.95rem;
+    }
+    .order-history-item p, .point-history-item p {
+        margin-bottom: 0.3rem;
+    }
+    .order-history-item .status-paid, .order-history-item .status-completed { color: var(--success-green); font-weight: bold; }
+    .order-history-item .status-pending_payment { color: orange; font-weight: bold; }
+    .order-history-item .status-cancelled, .order-history-item .status-failed { color: var(--error-red); font-weight: bold; }
+
+    .point-history-item .points-earned { color: var(--success-green); }
+    .point-history-item .points-redeemed { color: var(--error-red); }
+</style>
+
+<main>
+    <div class="container">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                <i class="fas fa-user-astronaut"></i> <!-- Atau <img src="path/to/avatar.jpg" alt="Avatar"> -->
+            </div>
+            <h1><i class="fas fa-id-badge"></i> Profil <%= user.username %></h1>
+            <p style="color: var(--text-medium);"><%= user.email %></p>
+            <div class="profile-points-display">
+                <i class="fas fa-star"></i> <%= user.pointsBalance %> Poin
+            </div>
+        </div>
+
+        <div class="profile-section card">
+            <h2><i class="fas fa-history"></i> Riwayat Pesanan</h2>
+            <% if (orders.length > 0) { %>
+                <% orders.forEach(order => { %>
+                    <div class="order-history-item">
+                        <p><strong><i class="fas fa-receipt"></i> Order ID:</strong> <%= order.merchantOrderId %></p>
+                        <p><strong><i class="fas fa-calendar-alt"></i> Tanggal:</strong> <%= new Date(order.createdAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) %></p>
+                        <p><strong><i class="fas fa-dollar-sign"></i> Total:</strong> Rp <%= order.totalAmount.toLocaleString('id-ID') %></p>
+                        <p><strong><i class="fas fa-truck"></i> Status:</strong> <span class="status-<%= order.status.toLowerCase().replace(/\s+/g, '_') %>"><%= order.status.replace('_', ' ').toUpperCase() %></span></p>
+                        <% if(order.totalPointsEarned > 0 && (order.status === 'paid' || order.status === 'completed')) { %>
+                            <p style="color:gold"><strong><i class="fas fa-star"></i> Poin Didapat:</strong> +<%= order.totalPointsEarned %></p>
+                        <% } %>
+                    </div>
+                <% }) %>
+            <% } else { %>
+                <p class="text-center text-medium"><i class="fas fa-box-open"></i> Anda belum memiliki riwayat pesanan.</p>
+            <% } %>
+        </div>
+
+        <div class="profile-section card">
+            <h2><i class="fas fa-coins"></i> Riwayat Poin</h2>
+            <% if (pointHistory.length > 0) { %>
+                <% pointHistory.forEach(tx => { %>
+                    <div class="point-history-item">
+                        <p><strong><i class="fas fa-calendar-check"></i> Tanggal:</strong> <%= new Date(tx.createdAt).toLocaleString('id-ID') %></p>
+                        <p><strong><i class="fas fa-info-circle"></i> Tipe:</strong> <%= tx.type.replace('_', ' ').toUpperCase() %></p>
+                        <p><strong><i class="fas fa-star"></i> Poin:</strong> <span class="<%= tx.points > 0 ? 'points-earned' : 'points-redeemed' %>"><%= tx.points > 0 ? '+' : '' %><%= tx.points %></span></p>
+                        <% if (tx.description) { %>
+                            <p><strong><i class="fas fa-comment-dots"></i> Deskripsi:</strong> <%= tx.description %></p>
+                        <% } %>
+                    </div>
+                <% }) %>
+            <% } else { %>
+                <p class="text-center text-medium"><i class="fas fa-search-dollar"></i> Tidak ada riwayat transaksi poin.</p>
+            <% } %>
+        </div>
+    </div>
+</main>
+
+<%- include('partials/footer') %>

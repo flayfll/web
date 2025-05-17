@@ -1,0 +1,432 @@
+const express = require('express');
+const router = express.Router();
+const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
+const Order = require('../models/order');
+const User = require('../models/user');
+const PointTransaction = require('../models/pointTransaction');
+const Product = require('../models/product');
+const danaConfig = require('../config/dana'); // Akan menggunakan DANA_API_BASE_URL dari sini jika SNAP juga di sana
+const { generateDanaSnapSignature } = require('../utils/danaSnapSignature'); // Kita akan buat file ini
+
+// Middleware untuk cek login
+function isLoggedIn(req, res, next) {
+    if (req.session.user) {
+        return next();
+    }
+    req.session.returnTo = req.originalUrl; // Simpan URL untuk redirect setelah login
+    res.redirect('/auth/login');
+}
+
+// Halaman Checkout
+router.get('/checkout', isLoggedIn, (req, res) => {
+    if (!req.session.cart || req.session.cart.length === 0) {
+        // Jika menggunakan connect-flash untuk pesan
+        // req.flash('error_msg', 'Keranjang Anda kosong. Silakan tambahkan produk terlebih dahulu.');
+        console.log('Checkout attempt with empty cart');
+        return res.redirect('/cart');
+    }
+    const cartTotal = res.locals.getCartTotal(); // Asumsi ini ada di res.locals dari app.js
+    res.render('checkout', {
+        title: 'Checkout Pesanan',
+        totalAmount: cartTotal,
+        // Kirim error message jika ada dari redirect sebelumnya
+        // errorMessage: req.flash('error_msg')
+    });
+});
+
+// Proses Checkout & Inisiasi Pembayaran (Diasumsikan menggunakan DANA SNAP)
+router.post('/checkout/process', isLoggedIn, async (req, res) => {
+    if (!req.session.cart || req.session.cart.length === 0) {
+        // req.flash('error_msg', 'Keranjang Anda kosong.');
+        return res.redirect('/cart');
+    }
+
+    const { shippingAddress } = req.body;
+    if (!shippingAddress || shippingAddress.trim() === "") {
+        // req.flash('error_msg', 'Alamat pengiriman tidak boleh kosong.');
+        // return res.redirect('/order/checkout');
+        return res.render('checkout', {
+            title: 'Checkout Pesanan',
+            totalAmount: res.locals.getCartTotal(),
+            errorMessage: 'Alamat pengiriman tidak boleh kosong.'
+        });
+    }
+
+    const cart = req.session.cart;
+    const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalPointsEarned = cart.reduce((sum, item) => sum + (item.pointsEarnedPerItem || 0) * item.quantity, 0);
+
+    const orderItems = cart.map(item => ({
+        product: item.productId,
+        quantity: item.quantity,
+        priceAtPurchase: item.price,
+        pointsEarnedPerItem: item.pointsEarnedPerItem || 0
+    }));
+
+    let newOrder;
+
+    try {
+        newOrder = new Order({
+            user: req.session.user._id,
+            items: orderItems,
+            totalAmount: totalAmount,
+            totalPointsEarned: totalPointsEarned,
+            shippingAddress: shippingAddress,
+            status: 'pending_payment',
+            paymentMethod: 'dana_snap', // Tandai sebagai DANA SNAP
+        });
+        const savedOrder = await newOrder.save();
+
+        // ===============================================================================
+        // BAGIAN SPESIFIK DANA SNAP - PERLU PENYESUAIAN BESAR DARI DOKUMENTASI DANA
+        // ===============================================================================
+        const timestamp = new Date().toISOString();
+
+        // 1. TENTUKAN ENDPOINT PATH UNTUK CREATE PAYMENT SNAP DANA
+        // Contoh (HIPOTETIS SEKALI!):
+        const snapEndpointPath = "/snap/v1.0/payment-request"; // GANTI DENGAN YANG BENAR DARI DOK. DANA!
+
+        // 2. BUAT REQUEST BODY SESUAI SPESIFIKASI SNAP DANA
+        // Ini SANGAT tergantung dokumentasi DANA SNAP. Contoh umum:
+        const snapRequestBody = {
+            partnerReferenceNo: savedOrder.merchantOrderId, // ID Order dari sisi merchant
+            merchantId: danaConfig.merchantId, // Atau ID spesifik dari DANA untuk SNAP
+            amount: {
+                value: savedOrder.totalAmount.toFixed(2), // SNAP sering minta format "10000.00"
+                currency: "IDR"
+            },
+            // transactionDate: timestamp, // Mungkin diperlukan
+            // validUntil: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // Contoh: valid 15 menit
+            // feeAmount: { value: "0.00", currency: "IDR" }, // Jika ada biaya
+            additionalInfo: {
+                // Ini sangat bervariasi, bisa berisi:
+                // customerName: req.session.user.username,
+                // items: savedOrder.items.map(item => ({ name: item.product.name, quantity: item.quantity, price: item.priceAtPurchase.toFixed(2) })),
+                // callbackUrl: danaConfig.paymentNotifyUrl, // ATAU URL Redirect dari DANA bisa ada di sini
+                // redirectUrl: danaConfig.paymentRedirectUrl, // URL setelah pembayaran
+                // paymentMethod: "DANA_BALANCE", // Mungkin? Atau di level atas
+                // orderTitle: `Pembayaran Order #${savedOrder.merchantOrderId}`
+            },
+            // Field-field lain yang mungkin dibutuhkan DANA untuk SNAP (misal: customer phone, email, dll.)
+        };
+        const requestBodyString = JSON.stringify(snapRequestBody);
+
+        // 3. GENERATE SIGNATURE SESUAI ATURAN SNAP DANA
+        // Ini juga SANGAT tergantung dokumentasi DANA SNAP. String-to-sign-nya akan berbeda.
+        // Misalnya: HTTPMethod + ":" + SnapEndpointPath + ":" + AccessToken (jika pakai) + ":" + MinifiedRequestBody + ":" + TimestampISO8601
+        const signature = generateDanaSnapSignature(
+            "POST",
+            snapEndpointPath,
+            requestBodyString, // Pastikan ini minified (JSON.stringify tanpa spasi)
+            timestamp,
+            danaConfig.clientId, // Atau Access Token jika DANA SNAP pakai OAuth
+            danaConfig.privateKey // Kunci privat Abang
+        );
+
+        // 4. SIAPKAN HEADERS SESUAI ATURAN SNAP DANA
+        // Contoh (HIPOTETIS!):
+        const snapHeaders = {
+            'Content-Type': 'application/json',
+            'X-TIMESTAMP': timestamp,
+            'X-CLIENT-KEY': danaConfig.clientId, // ATAU 'X-PARTNER-ID' atau Authorization Bearer Token
+            'X-SIGNATURE': signature, // Format signaturenya juga perlu dicek (misal, tanpa "RSA256V1=")
+            // 'X-EXTERNAL-ID': savedOrder.merchantOrderId, // Mungkin diperlukan
+            // Header lain sesuai dokumentasi DANA SNAP
+        };
+        // ===============================================================================
+        // AKHIR BAGIAN SPESIFIK DANA SNAP
+        // ===============================================================================
+
+        console.log("Sending to DANA SNAP:", danaConfig.apiBaseUrl + snapEndpointPath);
+        console.log("DANA SNAP Request Body:", requestBodyString);
+        console.log("DANA SNAP Headers:", snapHeaders);
+
+        const danaSnapResponse = await axios.post(
+            danaConfig.apiBaseUrl + snapEndpointPath, // Pastikan DANA_API_BASE_URL sesuai untuk SNAP
+            snapRequestBody,
+            { headers: snapHeaders }
+        );
+
+        console.log('DANA SNAP Raw Response Data:', JSON.stringify(danaSnapResponse.data, null, 2));
+
+        // 5. PROSES RESPONS DARI DANA SNAP
+        // Respons SNAP biasanya berisi `virtualAccountNo` (untuk VA/QRIS), `redirectUrl` (untuk web redirect), atau `actions`.
+        // INI SANGAT PERLU DISESUAIKAN DENGAN RESPONS DANA SNAP YANG SEBENARNYA
+        if (danaSnapResponse.data && (danaSnapResponse.data.redirectUrl || danaSnapResponse.data.virtualAccountNo || danaSnapResponse.data.actions)) {
+            // Contoh jika ada redirectUrl (paling umum untuk halaman pembayaran DANA)
+            if (danaSnapResponse.data.redirectUrl) {
+                savedOrder.danaTransactionId = danaSnapResponse.data.transactionId || danaSnapResponse.data.partnerReferenceNo; // Atau ID lain dari DANA
+                savedOrder.danaRedirectUrl = danaSnapResponse.data.redirectUrl;
+                await savedOrder.save();
+
+                req.session.cart = [];
+                await req.session.save();
+                return res.redirect(danaSnapResponse.data.redirectUrl);
+            }
+            // Contoh jika responsnya adalah data QRIS atau VA untuk ditampilkan
+            // else if (danaSnapResponse.data.virtualAccountNo) {
+            //     savedOrder.danaTransactionId = danaSnapResponse.data.transactionId;
+            //     // Simpan info VA atau QRIS jika perlu
+            //     await savedOrder.save();
+            //     req.session.cart = [];
+            //     await req.session.save();
+            //     return res.render('show-payment-code', {
+            //         title: 'Selesaikan Pembayaran',
+            //         order: savedOrder.toObject(),
+            //         paymentCode: danaSnapResponse.data.virtualAccountNo, // Atau data QRIS
+            //         paymentInstructions: "Silakan lakukan pembayaran menggunakan kode berikut..."
+            //     });
+            // }
+            else {
+                // Handle kasus lain jika ada `actions` atau format respons SNAP yang berbeda
+                console.error('DANA SNAP Response format not yet handled (no redirectUrl/VA):', danaSnapResponse.data);
+                throw new Error('Format respons DANA SNAP tidak didukung untuk redirect/VA.');
+            }
+        } else {
+            const responseCode = danaSnapResponse.data?.responseCode || 'N/A';
+            const responseMessage = danaSnapResponse.data?.responseMessage || 'Format respons dari DANA SNAP tidak sesuai.';
+            console.error(`DANA SNAP Response format unexpected (Code: ${responseCode}):`, danaSnapResponse.data);
+            throw new Error(`Pembayaran Gagal (DANA SNAP): ${responseMessage} (Code: ${responseCode})`);
+        }
+
+    } catch (error) {
+        let message = "Terjadi kesalahan internal saat memproses pembayaran. Silakan coba lagi nanti.";
+        console.error('--- ERROR START: Proses Checkout DANA SNAP ---');
+        if (error.response) {
+            console.error('DANA SNAP Error Response Data:', JSON.stringify(error.response.data, null, 2));
+            console.error('DANA SNAP Error Response Status:', error.response.status);
+            console.error('DANA SNAP Error Response Headers:', JSON.stringify(error.response.headers, null, 2));
+            const danaErrorMsg = error.response.data?.responseMessage || error.response.data?.message || error.response.statusText;
+            message = `Error dari DANA (${error.response.status}): ${danaErrorMsg || 'Tidak ada pesan spesifik'}`;
+        } else if (error.request) {
+            console.error('DANA SNAP Error Request (No Response): Error making request. Error: ', error.message);
+            message = "Tidak ada respons dari server DANA. Cek koneksi Anda atau endpoint DANA mungkin sedang bermasalah.";
+        } else {
+            console.error('Axios/Setup Error Message:', error.message);
+            message = `Kesalahan sistem: ${error.message}`;
+        }
+        // Untuk error signature generation yang dilempar dari utils
+        if (error.message.startsWith('DANA Signature Generation Failed') || error.message.startsWith('Pembayaran Gagal (DANA SNAP)')) {
+            message = error.message;
+        }
+        console.error('Full Error Object (if available):', error.toJSON ? JSON.stringify(error.toJSON(), null, 2) : error);
+        console.error('--- ERROR END: Proses Checkout DANA SNAP ---');
+
+        if (newOrder && newOrder._id && newOrder.status === 'pending_payment') {
+            try {
+                await Order.findByIdAndUpdate(newOrder._id, { status: 'failed', $unset: { danaRedirectUrl: "", danaTransactionId: "" } });
+                console.log(`Order ${newOrder.merchantOrderId} status updated to FAILED due to DANA SNAP processing error.`);
+            } catch (updateError) {
+                console.error(`Failed to update order ${newOrder.merchantOrderId} status to FAILED:`, updateError);
+            }
+        }
+        res.render('order-failed', {
+            title: "Pembayaran Gagal",
+            message: message,
+            order: newOrder ? newOrder.toObject() : null
+        });
+    }
+});
+
+// Halaman setelah user selesai di DANA (redirect)
+router.get('/dana/finish', async (req, res) => {
+    const { orderId, status: paymentStatusQuery, ...otherParams } = req.query;
+    // DANA SNAP mungkin mengirim parameter status yang berbeda, misal transactionStatus atau responseCode
+    // Untuk sekarang kita asumsikan 'status' dulu, tapi siap untuk diubah
+    console.log(`DANA Finish Redirect for Order ID: ${orderId}, Status: ${paymentStatusQuery}, Other Params:`, otherParams);
+
+    let order, userMessage, pageTitle, viewName;
+
+    try {
+        if (!orderId) {
+            // req.flash('error_msg', 'Parameter orderId tidak ditemukan.');
+            return res.redirect('/');
+        }
+        order = await Order.findOne({ merchantOrderId: orderId }).populate('user');
+        if (!order) {
+            // req.flash('error_msg', 'Order tidak ditemukan.');
+            return res.redirect('/');
+        }
+
+        // Sesuaikan logika status berdasarkan parameter yang dikirim DANA SNAP
+        const finalStatus = paymentStatusQuery ? paymentStatusQuery.toLowerCase() : (otherParams.transactionStatus ? otherParams.transactionStatus.toLowerCase() : 'unknown');
+
+        switch (finalStatus) {
+            case 'success': // Atau 'SETTLEMENT', 'CAPTURE' tergantung DANA SNAP
+            case 'paid':    // Bisa jadi DANA mengirim status ini juga
+                pageTitle = 'Pembayaran Diproses';
+                userMessage = 'Pembayaran Anda telah diterima dan sedang diproses. Anda akan segera menerima konfirmasi status pesanan.';
+                viewName = 'order-pending';
+                if (order.status === 'paid' || order.status === 'completed') {
+                    pageTitle = 'Pembayaran Berhasil';
+                    userMessage = 'Pembayaran Anda telah berhasil! Pesanan Anda akan segera kami proses.';
+                    viewName = 'order-success';
+                }
+                break;
+            case 'failed': // Atau 'FAILURE', 'DENY'
+            case 'deny':
+                pageTitle = 'Pembayaran Gagal';
+                userMessage = 'Maaf, pembayaran Anda gagal diproses. Silakan coba lagi atau gunakan metode pembayaran lain.';
+                viewName = 'order-failed';
+                break;
+            case 'cancelled': // Atau 'CANCEL'
+            case 'cancel':
+                pageTitle = 'Pembayaran Dibatalkan';
+                userMessage = 'Pembayaran Anda telah dibatalkan. Jika Anda ingin melanjutkan, silakan buat pesanan baru.';
+                viewName = 'order-cancelled';
+                break;
+            case 'pending': // Jika DANA mengirim status pending eksplisit
+                pageTitle = 'Pembayaran Pending';
+                userMessage = 'Pembayaran Anda sedang dalam status pending. Kami akan mengupdate status pesanan setelah ada konfirmasi lebih lanjut.';
+                viewName = 'order-pending';
+                break;
+                
+            default: // Jika status tidak dikenali atau DANA tidak kirim status jelas di redirect
+                console.warn(`DANA Finish: Unknown or missing payment status query param for order ${orderId}. Query:`, req.query);
+                pageTitle = 'Status Pembayaran Tidak Diketahui';
+                userMessage = 'Kami sedang memverifikasi status pembayaran Anda. Silakan cek riwayat pesanan Anda secara berkala atau tunggu notifikasi dari kami.';
+                viewName = 'order-pending'; // Default ke pending jika tidak jelas
+                break;
+        }
+        res.render(viewName, { title: pageTitle, order: order.toObject(), message: userMessage });
+
+    } catch (error) {
+        console.error("Error di DANA finish redirect:", error);
+        // req.flash('error_msg', 'Terjadi kesalahan saat memproses status pembayaran.');
+        res.redirect('/');
+    }
+});
+
+// DANA Notification URL (Server-to-Server webhook)
+router.post('/dana/notify', async (req, res) => {
+    console.log("=== DANA SNAP NOTIFY RECEIVED START ===");
+    console.log("Timestamp:", new Date().toISOString());
+    console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Body:", JSON.stringify(req.body, null, 2));
+    console.log("=== DANA SNAP NOTIFY RECEIVED END ===");
+
+    const notification = req.body; // Body notifikasi SNAP DANA akan berbeda
+
+    // ===============================================================================
+    // SANGAT PENTING - VERIFIKASI SIGNATURE NOTIFIKASI DARI DANA SNAP
+    // ===============================================================================
+    // Dapatkan Kunci Publik DANA untuk verifikasi notifikasi dari portal/dokumentasi mereka.
+    // String-to-sign untuk notifikasi juga akan spesifik dari DANA SNAP.
+    // Contoh:
+    // const danaSnapPublicKeyForNotif = "KUNCI_PUBLIK_DARI_DANA_UNTUK_VERIFIKASI_NOTIF";
+    // const signatureFromHeader = req.headers['x-signature']; // Atau nama header lain
+    // const timestampFromHeader = req.headers['x-timestamp'];
+    // const requestBodyStringForVerify = JSON.stringify(req.body); // PASTIKAN INI CARA DANA MEMBUATNYA
+    //
+    // // Fungsi verifyDanaSnapSignature akan mirip generateDanaSnapSignature tapi pakai crypto.createVerify
+    // const isValidSignature = verifyDanaSnapSignature(
+    //     "POST", // atau method yang digunakan DANA untuk notif
+    //     "/order/dana/notify", // path webhook Abang
+    //     requestBodyStringForVerify,
+    //     timestampFromHeader,
+    //     signatureFromHeader,
+    //     danaSnapPublicKeyForNotif // Kunci Publik DANA!
+    // );
+    // if (!isValidSignature) {
+    //     console.warn("DANA SNAP NOTIFY: Invalid signature. Notification rejected.");
+    //     // Respons ke DANA bahwa signature tidak valid (format respons tergantung DANA)
+    //     return res.status(400).json({ responseCode: "40001", responseMessage: "Invalid Signature" });
+    // }
+    // ===============================================================================
+
+    try {
+        // 1. PARSING DATA DARI NOTIFIKASI SNAP DANA
+        // Field-field ini akan SANGAT BERBEDA. Contoh umum dari notifikasi SNAP:
+        const merchantOrderId = notification.partnerReferenceNo; // Atau notification.externalId
+        const danaTransactionId = notification.referenceNo; // Atau ID transaksi dari DANA
+        const transactionStatus = notification.transactionStatus; // Misal: "SUCCESS", "FAILED", "PENDING"
+        // const transactionAmount = notification.amount?.value;
+        // const paymentMethod = notification.paymentMethod;
+
+        if (!merchantOrderId || !transactionStatus) {
+             console.error("DANA SNAP NOTIFY: Invalid notification format or missing required fields.", notification);
+             // Format respons ke DANA mungkin spesifik
+             return res.status(400).json({ responseCode: "40002", responseMessage: "Invalid Notification Format" });
+        }
+
+        const order = await Order.findOne({ merchantOrderId: merchantOrderId });
+
+        if (!order) {
+            console.error(`DANA SNAP NOTIFY: Order ${merchantOrderId} not found.`);
+            return res.status(404).json({ responseCode: "40401", responseMessage: "Order Not Found" });
+        }
+
+        // Logika Idempotency: Hindari proses ulang jika status sudah final
+        const currentStatus = order.status.toLowerCase();
+        const newStatus = transactionStatus.toLowerCase();
+
+        if ((currentStatus === 'paid' || currentStatus === 'completed' || currentStatus === 'cancelled' || currentStatus === 'failed') &&
+            (order.danaTransactionId === danaTransactionId || currentStatus === newStatus) ) {
+            console.log(`DANA SNAP NOTIFY: Order ${merchantOrderId} already processed (status: ${order.status}). Ignoring duplicate or non-progressing notification.`);
+            return res.status(200).json({ responseCode: "20000", responseMessage: "Notification Already Processed" });
+        }
+
+        let user;
+        // Sesuaikan dengan status yang dikirim DANA SNAP
+        if (newStatus === 'success' || newStatus === 'settlement' || newStatus === 'capture' || newStatus === 'paid') {
+            if (currentStatus !== 'paid' && currentStatus !== 'completed') {
+                order.status = 'paid';
+                order.paidAt = new Date();
+                order.danaTransactionId = danaTransactionId || order.danaTransactionId;
+
+                for (const item of order.items) {
+                    await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+                }
+
+                user = await User.findById(order.user);
+                if (user && order.totalPointsEarned > 0) {
+                    user.pointsBalance = (user.pointsBalance || 0) + order.totalPointsEarned;
+                    await user.save();
+                    // Update session jika ada, ini agak tricky di webhook tanpa req.session langsung
+                    // Mungkin perlu cara lain untuk notifikasi ke user (misal: socket.io, email)
+
+                    await PointTransaction.create({
+                        user: user._id,
+                        order: order._id,
+                        points: order.totalPointsEarned,
+                        type: 'earn_purchase',
+                        description: `Poin dari order #${order.merchantOrderId}`
+                    });
+                    console.log(`DANA SNAP NOTIFY: Points awarded to user ${user.username}: ${order.totalPointsEarned} for order ${merchantOrderId}.`);
+                }
+                await order.save();
+                console.log(`DANA SNAP NOTIFY: Order ${merchantOrderId} status updated to PAID/SUCCESS.`);
+            }
+        } else if (newStatus === 'failed' || newStatus === 'failure' || newStatus === 'deny') {
+            if (currentStatus !== 'failed') {
+                order.status = 'failed';
+                await order.save();
+                console.log(`DANA SNAP NOTIFY: Order ${merchantOrderId} status updated to FAILED.`);
+            }
+        } else if (newStatus === 'cancelled' || newStatus === 'cancel' || newStatus === 'expire' || newStatus === 'closed') {
+             if (currentStatus !== 'cancelled') {
+                order.status = 'cancelled';
+                await order.save();
+                console.log(`DANA SNAP NOTIFY: Order ${merchantOrderId} status updated to CANCELLED/EXPIRED/CLOSED.`);
+            }
+        } else if (newStatus === 'pending') {
+            // Jika status masih pending, mungkin tidak perlu update apa-apa, atau catat saja
+            console.log(`DANA SNAP NOTIFY: Order ${merchantOrderId} is PENDING. Waiting for final status.`);
+            // order.status = 'pending_confirmation'; // Atau status lain
+            // await order.save();
+        } else {
+            console.warn(`DANA SNAP NOTIFY: Unhandled transaction status "${transactionStatus}" for order ${merchantOrderId}.`);
+        }
+
+        // Kirim respons OK ke DANA SNAP (format respons tergantung DANA)
+        res.status(200).json({ responseCode: "20000", responseMessage: "Notification Processed Successfully" });
+
+    } catch (error) {
+        console.error('DANA SNAP NOTIFY: Error processing notification:', error);
+        // Format respons error ke DANA mungkin spesifik
+        res.status(500).json({ responseCode: "50000", responseMessage: "Internal Server Error" });
+    }
+});
+
+module.exports = router;

@@ -1,0 +1,46 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<style>
+    .checkout-form-container {
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+    .payment-info {
+        background-color: rgba(138, 43, 226, 0.1);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid var(--accent-purple);
+        margin-bottom: 1.5rem;
+    }
+    .payment-info p { margin-bottom: 0.3rem; }
+    .payment-info strong { color: var(--accent-pink); }
+</style>
+
+<main>
+    <div class="container">
+        <h1><i class="fas fa-shield-alt"></i> Checkout Aman</h1>
+        <div class="checkout-form-container card">
+            <h2><i class="fas fa-file-invoice-dollar"></i> Detail Pembayaran</h2>
+            <div class="payment-info">
+                <p>Total yang harus dibayar:</p>
+                <h3><strong>Rp <%= totalAmount.toLocaleString('id-ID') %></strong></h3>
+                <p><small><i class="fas fa-info-circle"></i> Anda akan diarahkan ke DANA untuk proses pembayaran yang aman.</small></p>
+            </div>
+
+            <form action="/order/checkout/process" method="POST">
+                <div class="form-group">
+                    <label for="shippingAddress"><i class="fas fa-map-marker-alt"></i> Alamat Pengiriman Lengkap:</label>
+                    <textarea name="shippingAddress" id="shippingAddress" rows="4" class="form-control" placeholder="Contoh: Jl. Keren No. 1, Kel. Canggih, Kec. Modern, Kota Impian, 12345" required></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 mt-2"><i class="fas fa-lock"></i> Bayar dengan DANA</button>
+            </form>
+            <div class="text-center mt-3">
+                <a href="/cart"><i class="fas fa-arrow-left"></i> Kembali ke Keranjang</a>
+            </div>
+        </div>
+    </div>
+</main>
+
+<%- include('partials/footer') %>

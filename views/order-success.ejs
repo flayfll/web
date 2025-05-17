@@ -1,0 +1,55 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<style>
+    .order-status-container {
+        max-width: 600px;
+        margin: 3rem auto;
+        text-align: center;
+    }
+    .order-status-icon {
+        font-size: 5rem;
+        margin-bottom: 1.5rem;
+    }
+    .status-success .order-status-icon { color: var(--success-green); }
+    .status-failed .order-status-icon { color: var(--error-red); }
+    .status-cancelled .order-status-icon { color: orange; } /* Or any other suitable color */
+    .status-pending .order-status-icon { color: var(--accent-purple-light); }
+
+    .order-details-summary {
+        background-color: var(--bg-dark-tertiary);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: left;
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+    }
+     .order-details-summary p { margin-bottom: 0.5rem;}
+</style>
+
+<main>
+    <div class="container order-status-container">
+        <div class="card status-success"> {/* Ganti class status-success dengan status-failed, status-cancelled, status-pending sesuai file */}
+            <div class="order-status-icon">
+                <i class="fas fa-check-circle"></i> {/* Ganti ikon: fa-times-circle (failed), fa-ban (cancelled), fa-hourglass-half (pending) */}
+            </div>
+            <h1>Pembayaran Berhasil!</h1> {/* Ganti Judul */}
+            <p class="text-medium">Terima kasih! Pesanan Anda telah berhasil kami terima dan akan segera diproses.</p>
+            
+            <% if (locals.order) { %>
+            <div class="order-details-summary">
+                <p><strong><i class="fas fa-receipt"></i> Nomor Order:</strong> <%= order.merchantOrderId %></p>
+                <p><strong><i class="fas fa-dollar-sign"></i> Total Pembayaran:</strong> Rp <%= order.totalAmount.toLocaleString('id-ID') %></p>
+                <% if(order.totalPointsEarned > 0) { %>
+                    <p style="color:gold"><strong><i class="fas fa-star"></i> Poin Didapat:</strong> +<%= order.totalPointsEarned %></p>
+                <% } %>
+            </div>
+            <% } %>
+
+            <a href="/user/profile" class="btn btn-primary mt-3"><i class="fas fa-user"></i> Lihat Profil Saya</a>
+            <a href="/" class="btn btn-secondary mt-3"><i class="fas fa-store"></i> Lanjut Belanja</a>
+        </div>
+    </div>
+</main>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,51 @@
+    </div>
+<style>
+    .main-footer {
+        background-color: var(--bg-dark-secondary);
+        color: var(--text-medium);
+        padding: 2rem 0;
+        text-align: center;
+        border-top: 1px solid var(--border-color);
+        margin-top: auto; /* Pushes footer to bottom */
+        font-size: 0.9rem;
+    }
+    .main-footer p {
+        margin-bottom: 0.5rem;
+    }
+    .footer-links a {
+        margin: 0 0.5rem;
+        color: var(--text-medium);
+        transition: color 0.3s ease;
+    }
+    .footer-links a:hover {
+        color: var(--accent-purple-light);
+    }
+    .footer-social-icons a {
+        font-size: 1.5rem;
+        margin: 0 0.7rem;
+        color: var(--text-medium);
+    }
+    .footer-social-icons a:hover {
+        color: var(--accent-pink);
+        transform: scale(1.1);
+    }
+</style>
+
+<footer class="main-footer">
+    <div class="container">
+        <p>© <%= new Date().getFullYear() %>WFC POINT </p>
+        <div class="footer-links">
+            <a href="#">Tentang Kami</a> |
+            <a href="#">Kontak</a> |
+            <a href="#">Kebijakan Privasi</a>
+        </div>
+        <div class="footer-social-icons mt-1">
+            <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+            <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            <a href="#" aria-label="Github"><i class="fab fa-github"></i></a>
+        </div>
+    </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<div class="form-group">
+    <label for="name"><i class="fas fa-tag"></i> Nama Produk:</label>
+    <input type="text" name="name" id="name" class="form-control" value="<%= product.name || '' %>" placeholder="Contoh: Template Desain Grafis Pro" required>
+</div>
+<div class="form-group">
+    <label for="description"><i class="fas fa-align-left"></i> Deskripsi Produk:</label>
+    <textarea name="description" id="description" rows="5" class="form-control" placeholder="Jelaskan produk Anda secara detail..." required><%= product.description || '' %></textarea>
+</div>
+<div class="d-flex" style="gap: 1.5rem; flex-wrap: wrap;">
+    <div class="form-group" style="flex: 1; min-width: 200px;">
+        <label for="price"><i class="fas fa-dollar-sign"></i> Harga (Rp):</label>
+        <input type="number" name="price" id="price" class="form-control" value="<%= product.price || '' %>" placeholder="Contoh: 50000" required min="0" step="1000">
+    </div>
+    <div class="form-group" style="flex: 1; min-width: 200px;">
+        <label for="stock"><i class="fas fa-cubes"></i> Stok:</label>
+        <input type="number" name="stock" id="stock" class="form-control" value="<%= product.stock || '1' %>" placeholder="Jumlah stok" required min="0">
+    </div>
+</div>
+<div class="form-group">
+    <label for="brand"><i class="fas fa-copyright"></i> Merk/Brand (Opsional):</label>
+    <input type="text" name="brand" id="brand" class="form-control" value="<%= product.brand || '' %>" placeholder="Contoh: TokoKeren Design">
+</div>
+<div class="form-group">
+    <label for="thumbnailUrl"><i class="fas fa-image"></i> URL Gambar Sampul (Thumbnail):</label>
+    <input type="url" name="thumbnailUrl" id="thumbnailUrl" class="form-control" value="<%= product.thumbnailUrl || '' %>" placeholder="https://example.com/thumbnail.jpg">
+    <% if (product.thumbnailUrl) { %><img src="<%= product.thumbnailUrl %>" alt="Preview Sampul" style="max-width: 200px; margin-top: 10px; border-radius: 4px;"><% } %>
+</div>
+<div class="form-group">
+    <label for="imageUrl"><i class="fas fa-images"></i> URL Gambar Detail Produk (Opsional, jika beda):</label>
+    <input type="url" name="imageUrl" id="imageUrl" class="form-control" value="<%= product.imageUrl || '' %>" placeholder="https://example.com/detail-image.jpg">
+    <% if (product.imageUrl && product.imageUrl !== product.thumbnailUrl) { %><img src="<%= product.imageUrl %>" alt="Preview Detail" style="max-width: 200px; margin-top: 10px; border-radius: 4px;"><% } %>
+</div>
+<div class="form-group">
+    <label for="tags"><i class="fas fa-tags"></i> Tags/Kata Kunci (pisahkan dengan koma):</label>
+    <input type="text" name="tags" id="tags" class="form-control" value="<%= product.tags ? product.tags.join(', ') : '' %>" placeholder="Contoh: desain, template, grafis, modern">
+</div>
+<div class="form-group">
+    <input type="checkbox" name="isPublished" id="isPublished" <%= (typeof product.isPublished === 'undefined' || product.isPublished) ? 'checked' : '' %>>
+    <label for="isPublished" style="font-weight: normal; text-transform: none; margin-left: 0.5em;"><i class="fas fa-eye"></i> Publikasikan Produk Ini</label>
+    <small style="display: block; color: var(--text-medium);">Jika tidak dicentang, produk akan disimpan sebagai draft.</small>
+</div>

@@ -1,0 +1,84 @@
+<%- include('../partials/header') %>
+<%- include('../partials/navbar') %>
+
+<style>
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    .dashboard-header h1 { text-align: left; }
+    .product-table-seller img {
+        width: 60px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+    .action-buttons .btn { margin-right: 0.5rem; margin-bottom: 0.5rem; }
+</style>
+
+<main>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1><i class="fas fa-store-alt"></i> Dashboard toko Saya</h1>
+            <a href="/seller/products/add" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Tambah Produk Baru</a>
+        </div>
+
+        <% if (locals.errorMessage) { %>
+            <div class="alert alert-danger"><i class="fas fa-times-circle"></i> <%= errorMessage %></div>
+        <% } %>
+        <% if (locals.successMessage) { %>
+            <div class="alert alert-success"><i class="fas fa-check-circle"></i> <%= successMessage %></div>
+        <% } %>
+        
+        <div class="card">
+            <div class="card-glow"></div>
+            <h2><i class="fas fa-boxes"></i> Produk Saya (<%= products.length %>)</h2>
+            <% if (products.length > 0) { %>
+                <div class="table-responsive">
+                    <table class="product-table-seller">
+                        <thead>
+                            <tr>
+                                <th>Sampul</th>
+                                <th>Nama Produk</th>
+                                <th>Harga</th>
+                                <th>Stok</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% products.forEach(product => { %>
+                                <tr>
+                                    <td><img src="<%= product.thumbnailUrl || product.imageUrl %>" alt="<%= product.name %>"></td>
+                                    <td><%= product.name %></td>
+                                    <td>Rp <%= product.price.toLocaleString('id-ID') %></td>
+                                    <td><%= product.stock %></td>
+                                    <td>
+                                        <% if (product.isPublished) { %>
+                                            <span style="color: var(--success-green);"><i class="fas fa-eye"></i> Dipublikasikan</span>
+                                        <% } else { %>
+                                            <span style="color: var(--warning-yellow);"><i class="fas fa-eye-slash"></i> Draft</span>
+                                        <% } %>
+                                    </td>
+                                    <td class="action-buttons">
+                                        <a href="/seller/products/edit/<%= product._id %>" class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i> Edit</a>
+                                        <form action="/seller/products/delete/<%= product._id %>" method="POST" style="display: inline;" onsubmit="return confirm('Yakin ingin menghapus produk ini?');">
+                                            <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt"></i> Hapus</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } else { %>
+                <p class="text-center text-medium mt-2"><i class="fas fa-box-open fa-2x"></i><br>Anda belum memiliki produk. Tambahkan produk pertama Anda!</p>
+            <% } %>
+        </div>
+    </div>
+</main>
+
+<%- include('../partials/footer') %>

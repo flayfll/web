@@ -1,0 +1,208 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<style>
+    .hero-section {
+        text-align: center;
+        padding: 3.5rem 1.5rem;
+        background: linear-gradient(rgba(10, 9, 22, 0.88), rgba(10, 9, 22, 0.88)), url('https://source.unsplash.com/1920x1080/?digital,network,code') no-repeat center center/cover;
+        border-bottom: 3px solid var(--accent-purple);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(127,0,255,0.05) 10px, rgba(127,0,255,0.05) 20px);
+        z-index: 0;
+        animation: animatedBackground 20s linear infinite;
+    }
+    @keyframes animatedBackground{
+      from{ background-position: 0 0; }
+      to{ background-position: 100% 0; }
+    }
+    .hero-content {
+        position: relative;
+        z-index: 1;
+    }
+    .hero-section h1 {
+        font-size: clamp(2.5rem, 6vw, 4rem);
+        color: #fff;
+        text-shadow: 0 0 20px var(--accent-purple), 0 0 30px var(--accent-pink);
+        margin-bottom: 0.8rem;
+    }
+    .hero-section p {
+        font-size: clamp(1rem, 2.5vw, 1.3rem);
+        color: var(--text-medium);
+        max-width: 700px;
+        margin: 1rem auto 2.5rem;
+    }
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+        gap: 2.2rem;
+        margin-top: 2.5rem;
+    }
+    .product-card {
+        background-color: var(--bg-dark-tertiary);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    .product-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.35), var(--glow-shadow-purple);
+    }
+    .product-image-container {
+        width: 100%;
+        height: 220px;
+        overflow: hidden;
+        position: relative;
+    }
+    .product-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.45s;
+    }
+    .product-card:hover img {
+        transform: scale(1.1);
+        opacity: 0.9;
+    }
+    .product-info {
+        padding: 1.5rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .product-info h3 {
+        font-size: 1.4rem;
+        margin-bottom: 0.6rem;
+        font-family: var(--font-primary);
+        font-weight: 600;
+    }
+    .product-info h3 a {
+        color: var(--text-light);
+    }
+    .product-info h3 a:hover {
+        color: var(--accent-purple-light);
+    }
+    .product-price {
+        font-size: 1.6rem;
+        font-weight: 700;
+        font-family: var(--font-tech);
+        color: var(--accent-pink);
+        margin-bottom: 0.6rem;
+    }
+    .product-points {
+        font-size: 0.9rem;
+        color: var(--text-medium);
+        margin-bottom: 0.8rem;
+    }
+    .product-points i {
+        color: gold;
+        margin-right: 0.3em;
+    }
+    .product-seller {
+        font-size: 0.85rem;
+        color: var(--text-medium);
+        margin-bottom: 1rem;
+    }
+    .product-seller i {
+        margin-right: 0.3em;
+        color: var(--accent-cyan);
+    }
+    .product-seller a {
+        font-weight: 500;
+    }
+    .product-actions {
+        margin-top: auto;
+    }
+    .product-actions .form-control {
+        width: 75px;
+        padding: 0.65rem;
+        margin-right: 0.6rem;
+        text-align: center;
+        display: inline-block;
+        vertical-align: middle;
+        background-color: rgba(10,9,22,0.5);
+    }
+    .product-actions .btn {
+      vertical-align: middle;
+    }
+    .section-title {
+        text-align: center;
+        margin-top: 3rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+    .section-title i {
+        font-size: 2.2rem;
+        color: var(--accent-purple);
+    }
+</style>
+
+<main>
+    <section class="hero-section">
+        <div class="hero-content">
+            <h1><i class="fas fa-meteor"></i> jelajahi dunia pembisnis tanpa batas!</h1>
+            <p>Temukan produk  unik, kumpulkan poin loyalitas, di WFC POINT.</p>
+            <a href="#produk-kami" class="btn btn-primary"><i class="fas fa-shopping-bag"></i> Lihat Koleksi Produk</a>
+        </div>
+    </section>
+
+    <div class="container" id="produk-kami">
+        <h2 class="section-title"><i class="fas fa-cubes"></i> Produk Unggulan Kami</h2>
+        <% if (products.length > 0) { %>
+            <div class="product-grid">
+                <% products.forEach(product => { %>
+                    <div class="product-card">
+                        <div class="card-glow"></div>
+                        <div class="product-image-container">
+                           <a href="/product/<%= product._id %>">
+                             <img src="<%= product.thumbnailUrl || product.imageUrl || 'https://via.placeholder.com/400x220/100F24/F0F0F5?text=Produk+Keren' %>" alt="<%= product.name %>">
+                           </a>
+                        </div>
+                        <div class="product-info">
+                            <h3><a href="/product/<%= product._id %>"><%= product.name %></a></h3>
+                            <p class="product-price">Rp <%= product.price.toLocaleString('id-ID') %></p>
+                            <p class="product-points"><i class="fas fa-star"></i> Dapatkan <%= product.pointsEarned %> Poin</p>
+                            <% if (product.seller) { %>
+                                <p class="product-seller">
+                                    <i class="fas fa-store"></i> <a href="/store/<%= product.seller._id %>"><%= product.seller.storeName || product.seller.username %></a>
+                                </p>
+                            <% } %>
+                            <div class="product-actions">
+                                <form action="/cart/add/<%= product._id %>" method="POST" class="d-flex align-items-center">
+                                    <input type="number" name="quantity" value="1" min="1" max="<%= product.stock > 0 ? product.stock : 1 %>" <%= product.stock === 0 ? 'disabled' : '' %> class="form-control">
+                                    <% if (product.stock > 0) { %>
+                                    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-cart-plus"></i> Add</button>
+                                    <% } else { %>
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled><i class="fas fa-ban"></i> Habis</button>
+                                    <% } %>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } else { %>
+            <div class="card text-center mt-3" style="padding: 3rem;">
+                <p style="font-size: 3rem; color: var(--text-medium); margin-bottom:1rem;"><i class="fas fa-ghost"></i></p>
+                <h2>Oops! Belum Ada Produk.</h2>
+                <p class="text-medium">Koleksi produk kami sedang kosong. Silakan cek kembali nanti ya!</p>
+            </div>
+        <% } %>
+    </div>
+</main>
+
+<%- include('partials/footer') %>

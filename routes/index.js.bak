@@ -1,0 +1,34 @@
+const express = require('express');
+const router = express.Router();
+const Product = require('../models/product');
+
+router.get('/', async (req, res) => {
+    try {
+        const products = await Product.find({ isPublished: true }) // Hanya tampilkan produk yang published
+                                      .populate('seller', 'username storeName') // Ambil info username penjual
+                                      .sort({ createdAt: -1 });
+        res.render('index', { title: 'Selamat Datang!', products });
+    } catch (error) {
+        console.error(error);
+        res.status(500).render('error-page', { title: "Error", message: "Gagal memuat produk."});
+    }
+});
+
+router.get('/product/:id', async (req, res) => {
+    try {
+        const product = await Product.findOne({ _id: req.params.id, isPublished: true })
+                                     .populate('seller', 'username storeName'); // Ambil info username & nama toko penjual
+        if (!product) {
+            return res.status(404).render('error-page', { title: "404", message: "Produk tidak ditemukan atau belum dipublikasikan."});
+        }
+        res.render('product-detail', { title: product.name, product });
+    } catch (error) {
+        console.error(error);
+        if (error.kind === 'ObjectId') {
+             return res.status(404).render('error-page', { title: "404", message: "Format ID produk tidak valid."});
+        }
+        res.status(500).render('error-page', { title: "Error", message: "Gagal memuat detail produk."});
+    }
+});
+
+module.exports = router;
